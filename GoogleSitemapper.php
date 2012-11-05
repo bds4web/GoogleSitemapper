@@ -57,7 +57,7 @@ class GoogleSitemapper
 
     protected $_autoSavePerUrl = 50000;
 
-    public function __construct($type = 'default')
+    public function __construct()
     {
         $this->initialize();
     }
