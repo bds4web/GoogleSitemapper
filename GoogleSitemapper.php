@@ -42,31 +42,20 @@ class GoogleSitemapper
      */
     protected $_autoEncodeUrl = true;
 
-    public function setSiteAddress($siteAddress)
-    {
-        $siteAddress = rtrim($siteAddress, '/');
+    /**
+     * @var bool
+     */
+    protected $_autoSave = false;
 
-        if (substr($siteAddress, 0, 4) != 'http') {
-            throw new Exception('Invalid address. The address should start with http or https');
-        }
+    protected $_urlCount = 1;
 
-        $this->_siteAddress = $siteAddress;
-    }
+    protected $_fileIndex = 1;
 
-    public function getSiteAddress()
-    {
-        return $this->_siteAddress;
-    }
+    protected $_gzip = true;
 
-    public function disableAutoEncodeUrl()
-    {
-        $this->_autoEncodeUrl = false;
-    }
+    protected $_sitemapFileName = 'sitemap';
 
-    public function enableAutoEncodeUrl()
-    {
-        $this->_autoEncodeUrl = true;
-    }
+    protected $_autoSavePerUrl = 50000;
 
     public function __construct($type = 'default')
     {
@@ -93,20 +82,39 @@ class GoogleSitemapper
         return $xmlDoc->saveXML();
     }
 
-    public function saveXML($gzip = true)
+    public function saveXML($gzip = null)
     {
+        if ($this->_autoSave) {
+            return;
+        }
+
+        $this->_saveXml($gzip);
+    }
+
+    protected function _saveXml($gzip = null)
+    {
+        if (is_null($gzip)) {
+            $gzip = $this->_gzip;
+        }
+
         $output    = $this->createXml();
         $extension = 'xml';
 
         if ($gzip) {
-            if(!extension_loaded('zlib')) {
+            if (!extension_loaded('zlib')) {
                 throw new Exception('Zlib extension should be enabled for gzip support');
             }
             $output    = gzencode($output, 9);
             $extension = 'xml.gz';
         }
 
-        file_put_contents('sitemap.' . $extension, $output);
+        $fileName = $this->getSitemapFileName();
+
+        if ($this->_autoSave) {
+            $fileName .= $this->_fileIndex;
+        }
+
+        file_put_contents($fileName . '.' . $extension, $output);
     }
 
     /**
@@ -152,6 +160,15 @@ class GoogleSitemapper
      */
     public function addUrl($loc, $changefreq = self::CHANGEFREQ_ALWAYS, $lastmod = null, $priority = null, $images = array())
     {
+        if ($this->_autoSave) {
+            if ($this->_urlCount % $this->_autoSavePerUrl == 0) {
+                $this->_saveXml();
+                $this->initialize();
+                $this->_fileIndex++;
+            }
+            $this->_urlCount++;
+        }
+
         $urlElement = $this->_xmlDoc->createElement('url');
         $url        = $this->_urlset->appendChild($urlElement);
 
@@ -176,6 +193,14 @@ class GoogleSitemapper
         }
 
         return $url;
+    }
+
+    public function __destruct()
+    {
+        if ($this->_autoSave) {
+            $this->_saveXml();
+            $this->createIndex();
+        }
     }
 
     protected function _filterDate($lastmod)
@@ -272,7 +297,8 @@ class GoogleSitemapper
                 'duration', 'expiration_date', 'rating', 'view_count', 'publication_date', 'family_friendly',
                 'tag', 'category', 'restriction', 'gallery_loc', 'price', 'requires_subscription', 'uploader',
                 'platform', 'live'
-            ))) {
+            ))
+            ) {
                 throw new DomainException('Invalid video value.');
             }
 
@@ -334,6 +360,37 @@ class GoogleSitemapper
 //        </news:news>
     }
 
+    public function createIndex()
+    {
+        $xmlDoc = new DOMDocument('1.0', 'utf-8');
+
+        $sitemapindex = $xmlDoc->createElement('sitemapindex');
+        $xmlDoc->appendChild($sitemapindex);
+
+        $ext = 'xml';
+        if ($this->_gzip) $ext .= '.gz';
+
+        for ($i = 1; $i < $this->_fileIndex+1; $i++) {
+            $sitemap = $xmlDoc->createElement('sitemap');
+            $loc     = $xmlDoc->createElement('loc', $this->getSiteAddress() . '/sitemap' . $i . '.' . $ext);
+            $lastmod = $xmlDoc->createElement('lastmod', date('c'));
+
+            $sitemap->appendChild($loc);
+            $sitemap->appendChild($lastmod);
+
+            $sitemapindex->appendChild($sitemap);
+        }
+
+        $xmlDoc->formatOutput = true;
+        $output = $xmlDoc->saveXML();
+
+        if ($this->_gzip) {
+            $output    = gzencode($output, 9);
+        }
+
+        file_put_contents($this->getSitemapFileName() . '.' . $ext, $output);
+    }
+
     protected function _filterUrl($loc)
     {
         $isFullUrl = preg_match('#^(https?://)(.+)#', $loc, $m);
@@ -355,5 +412,89 @@ class GoogleSitemapper
 
         return $loc;
 
+    }
+
+    public function enableAutoSave()
+    {
+        $this->_autoSave = true;
+
+        return $this;
+    }
+
+    public function disableAutoSave()
+    {
+        $this->_autoSave = false;
+
+        return $this;
+    }
+
+    public function enableCompression()
+    {
+        $this->_gzip = true;
+
+        return $this;
+    }
+
+    public function disableCompression()
+    {
+        $this->_gzip = false;
+
+        return $this;
+    }
+
+    public function disableAutoEncodeUrl()
+    {
+        $this->_autoEncodeUrl = false;
+
+        return $this;
+    }
+
+    public function enableAutoEncodeUrl()
+    {
+        $this->_autoEncodeUrl = true;
+
+        return $this;
+    }
+
+    public function setSiteAddress($siteAddress)
+    {
+        $siteAddress = rtrim($siteAddress, '/');
+
+        if (substr($siteAddress, 0, 4) != 'http') {
+            throw new Exception('Invalid address. The address should start with http or https');
+        }
+
+        $this->_siteAddress = $siteAddress;
+
+        return $this;
+    }
+
+    public function getSiteAddress()
+    {
+        return $this->_siteAddress;
+    }
+
+    public function getSitemapFileName()
+    {
+        return $this->_sitemapFileName;
+    }
+
+    public function setSitemapFileName($sitemapFileName)
+    {
+        $this->_sitemapFileName = $sitemapFileName;
+
+        return $this;
+    }
+
+    public function getAutoSavePerUrl()
+    {
+        return $this->_autoSavePerUrl;
+    }
+
+    public function setAutoSavePerUrl($autoSavePerUrl)
+    {
+        $this->_autoSavePerUrl = $autoSavePerUrl;
+
+        return $this;
     }
 }

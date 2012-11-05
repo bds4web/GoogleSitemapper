@@ -3,7 +3,12 @@ require 'GoogleSitemapper.php';
 
 $sitemap = new GoogleSitemapper();
 $sitemap->setSiteAddress('http://www.uzmansorusu.com');
+//$sitemap->enableAutoSave();
+// $sitemap->disableCompression();
 // $sitemap->addUrl('/questions');
+//$sitemap->setSitemapFileName('some_dir/sitemap');
+//$sitemap->setAutoSavePerUrl(20);
+
 
 $sitemap->addUrl('http://deneme.com/fasdfasd');
 $sitemap->addUrl('/überşaft' . uniqid() . '?şakacı=1&deneme=2<test>"\'?test_question mark');
@@ -21,10 +26,11 @@ $sitemap->addImage($url, array(
 ));
 
 
-for ($i = 0; $i < 50000; $i++) {
+for ($i = 0; $i < 100; $i++) {
     $sitemap->addUrl('/überşaft' . uniqid() . '?şakacı=1&deneme=2<test>"\'?test_question mark');
 }
 
+$sitemap->addUrl('/son');
 
 //echo $sitemap->createXml();
 $sitemap->saveXml(true);
