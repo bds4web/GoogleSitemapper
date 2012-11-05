@@ -273,6 +273,21 @@ class GoogleSitemapper
     }
 
     /**
+     * Ping search engines.
+     *
+     * TODO: Add vendors other than Google
+     * TODO: Parse output and verify that the request is successful
+     */
+    public function ping()
+    {
+        $ext = 'xml';
+        if ($this->_gzip) $ext .= '.gz';
+
+        $url    = rawurlencode($this->getSiteAddress() . '/' . $this->_sitemapFileName . '.' . $ext);
+        $output = file_get_contents('http://www.google.com/webmasters/tools/ping?sitemap=' . $url);
+    }
+
+    /**
      * Add video.
      *
      * TODO: Better support for video. i.e. attributes for some tags

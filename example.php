@@ -35,6 +35,7 @@ $sitemap->addUrl('/son');
 //echo $sitemap->createXml();
 $sitemap->saveXml(true);
 // $sitemap->saveXml();
+//$sitemap->ping();
 
 echo memory_get_peak_usage(true) . "\n";
 echo "Finished\n";
