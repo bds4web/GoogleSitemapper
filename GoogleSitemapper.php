@@ -53,9 +53,22 @@ class GoogleSitemapper
 
     protected $_gzip = true;
 
+    /**
+     * Filename to use when saving the xml. You may also define a directory here.
+     * This variable is used to ping search engines too.
+     *
+     * @var string
+     */
     protected $_sitemapFileName = 'sitemap';
 
     protected $_autoSavePerUrl = 50000;
+
+    /**
+     * The base path for the sitemap file. Saves to the same directory with
+     *
+     * @var null|string
+     */
+    protected $_outputBasePath = null;
 
     public function __construct()
     {
@@ -114,7 +127,11 @@ class GoogleSitemapper
             $fileName .= $this->_fileIndex;
         }
 
-        file_put_contents($fileName . '.' . $extension, $output);
+        $outputPath = $this->getOutputDir() . '/' . $fileName . '.' . $extension;
+
+        if(file_put_contents($outputPath, $output) === false) {
+            throw new Exception('Could not write to: ' . $outputPath);
+        }
     }
 
     /**
@@ -283,7 +300,7 @@ class GoogleSitemapper
         $ext = 'xml';
         if ($this->_gzip) $ext .= '.gz';
 
-        $url    = rawurlencode($this->getSiteAddress() . '/' . $this->_sitemapFileName . '.' . $ext);
+        $url    = rawurlencode($this->getSiteAddress() . '/' . $this->getSitemapFileName() . '.' . $ext);
         $output = file_get_contents('http://www.google.com/webmasters/tools/ping?sitemap=' . $url);
     }
 
@@ -403,7 +420,12 @@ class GoogleSitemapper
             $output    = gzencode($output, 9);
         }
 
-        file_put_contents($this->getSitemapFileName() . '.' . $ext, $output);
+        $outputPath = $this->getOutputDir() . '/' . $this->getSitemapFileName() . '.' . $ext;
+
+        if(file_put_contents($outputPath, $output) === false) {
+            throw new Exception('Could not write to: ' . $outputPath);
+        }
+
     }
 
     protected function _filterUrl($loc)
@@ -496,7 +518,7 @@ class GoogleSitemapper
 
     public function setSitemapFileName($sitemapFileName)
     {
-        $this->_sitemapFileName = $sitemapFileName;
+        $this->_sitemapFileName = trim($sitemapFileName, '/');
 
         return $this;
     }
@@ -509,6 +531,22 @@ class GoogleSitemapper
     public function setAutoSavePerUrl($autoSavePerUrl)
     {
         $this->_autoSavePerUrl = $autoSavePerUrl;
+
+        return $this;
+    }
+
+    public function getOutputDir()
+    {
+        if(!$this->_outputBasePath) {
+            return dirname(__FILE__);
+        }
+
+        return $this->_outputBasePath;
+    }
+
+    public function setOutputBasePath($outputDir)
+    {
+        $this->_outputBasePath = rtrim($outputDir, '/');
 
         return $this;
     }
